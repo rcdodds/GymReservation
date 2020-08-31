@@ -94,7 +94,7 @@ def schedule_gym_time():
     if start_date.weekday() < 5:
         start_time = datetime.time(7, 0, 0)
     else:
-        start_time = datetime.time(4, 0, 0)
+        start_time = datetime.time(11, 0, 0)
 
     # Clean up start time
     start_time_str = start_time.strftime("%I:%M %p")
