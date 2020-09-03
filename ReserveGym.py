@@ -76,7 +76,7 @@ def schedule_gym_time():
     # Choose date 5 days in future
     start_date = datetime.date.today() + datetime.timedelta(days=5)
     start_date_str = start_date.strftime("%m/%d/%y")
-    month_day = start_date.strftime("%d")
+    month_day = str(int(start_date.strftime("%d")))
     driver.find_element_by_id('StartDate').click()
     cells = driver.find_elements_by_xpath('//td')
     dates = [date.text for date in cells]
