@@ -1,4 +1,4 @@
-# Automating Gym Reservation
+# Automating Gym Reservations
 
 #### Main Components
 1. ReserveGym.py
@@ -11,7 +11,7 @@
     - Run ReserveGym.py
 
 3. Windows Task Scheduler Task
-    - Trigger = 1:00 AM every day
+    - Trigger = 12:15 AM every day
     - Action = Execute ReserveGym.bat
     
 
