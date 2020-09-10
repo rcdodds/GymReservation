@@ -228,17 +228,27 @@ def main():
     # Choose date 5 days in future
     st_day = datetime.date.today() + datetime.timedelta(days=5)
 
-    # Choose start time
+    # Generate list of event info - [[st_day, st_time1, dur1], [st_day, st_time2, dur2]]
+    gym_reservations = []
     if st_day.weekday() < 5:
-        st_time = datetime.time(7, 0, 0)
+        # 7 - 8 am
+        st_time = datetime.time(2, 0, 0)
+        dur = 60
+        gym_reservations.append([st_day, st_time, dur])
+
+        # 5:30 - 6 pm
+        st_time = datetime.time(4, 30, 0)
+        dur = 30
+        gym_reservations.append([st_day, st_time, dur])
     else:
+        # 12 - 1 pm
         st_time = datetime.time(12, 0, 0)
+        dur = 60
+        gym_reservations.append([st_day, st_time, dur])
 
-    # Set duration to an hour
-    dur = 60
-
-    # Create reservation for 5 days in future
-    schedule_gym_time(st_day, st_time, dur)
+    # Create reservations
+    for reservation in gym_reservations:
+        schedule_gym_time(reservation[0], reservation[1], reservation[2])
 
     # Get all scheduled gym times
     print(separator)
