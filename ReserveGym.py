@@ -232,12 +232,12 @@ def main():
     gym_reservations = []
     if st_day.weekday() < 5:
         # 7 - 8 am
-        st_time = datetime.time(2, 0, 0)
+        st_time = datetime.time(7, 0, 0)
         dur = 60
         gym_reservations.append([st_day, st_time, dur])
 
         # 5:30 - 6 pm
-        st_time = datetime.time(4, 30, 0)
+        st_time = datetime.time(17, 30, 0)
         dur = 30
         gym_reservations.append([st_day, st_time, dur])
     else:
