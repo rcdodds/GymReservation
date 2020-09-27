@@ -2,39 +2,30 @@ from __future__ import print_function
 
 import datetime
 import time
+import json
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions
-from selenium.webdriver.support.ui import WebDriverWait
 
 from webdriver_manager.chrome import ChromeDriverManager
 
-from GoogleCalendar import check_gcal_events, create_gcal_event, change_gcal_event_title
+from GoogleCalendar import check_gcal_events, change_gcal_event_title
 
 
 # Open a Selenium browser while printing status updates. Return said browser for use in scraping.
 def open_gym_scheduler():
     # Open a selenium browser
-    nickname = 'Lyon Place Login Page'
     login_url = 'https://lyonplace.securecafe.com/residentservices/lyon-place-at-clarendon-center/userlogin.aspx'
     reservations_url = 'https://lyonplace.securecafe.com/residentservices/lyon-place-at-clarendon-center/' \
                        'conciergereservations.aspx#tab_MakeAReservation'
 
     chrome_options = Options()
     # chrome_options.headless = True
-    print('Opening Selenium browser')
     sele = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
-    print('Selenium browser opened')
-    print('Opening ' + nickname)
     sele.get(login_url)
-    print(nickname + ' opened')
 
     # Log in
-    username, password = read_login('lyon_login.txt')
+    username, password = read_login('lyon_login.json')
     sele.find_element_by_id('Username').send_keys(username)
     sele.find_element_by_id('Password').send_keys(password)
     sele.find_element_by_id('SignIn').click()
@@ -50,14 +41,15 @@ def open_gym_scheduler():
 # Read username and password from local text file
 def read_login(filename):
     with open(filename, mode='r') as file:
-        username = file.readline()
-        password = file.readline()
-    return username, password
+        login_dict = json.load(file)
+    return login_dict["username"], login_dict["password"]
 
 
 # Submit Lyon Place gym reservation
 def schedule_gym_time(start_date, start_time, duration):
+    # Number of seconds to sleep after
     sleeptime = 5
+
     # Open website and get to reservations page
     driver = open_gym_scheduler()
 
@@ -93,61 +85,24 @@ def schedule_gym_time(start_date, start_time, duration):
     driver.find_element_by_id('AmPmStart').send_keys(start_time_ampm)
     time.sleep(sleeptime)
 
-    try:
-        # Click create reservation button
-        driver.find_element_by_id('btnCreateReservation').click()
-        time.sleep(sleeptime)
-        # Check that reservation is being created at the desired time
-
+    # Click create reservation button
+    driver.find_element_by_id('btnCreateReservation').click()
+    time.sleep(sleeptime)
+    # Check that reservation is being created at the desired time
+    desired_start_time = start_date_str + ' ' + start_time_str
+    actual_start_time = driver.find_element_by_class_name('span9').text
+    if actual_start_time == desired_start_time:
+        # Confirm reservation
         driver.find_element_by_id('btnPayNow').click()
         time.sleep(sleeptime)
-    except:
-        print('Reservation could not be submitted')
-        driver.close()
-    else:
-        print('Reservation created for ' + start_date_str + ' at ' + start_time_str)
+        print('Reservation created for ' + actual_start_time)
         driver.switch_to.alert.dismiss()
-        driver.close()
-
-
-# Retrieve all Lyon Place gym reservations
-def check_scheduled_gym_times():
-    # Open website and get to reservations page
-    driver = open_gym_scheduler()
-
-    # For moving around page
-    builder = ActionChains(driver)
-
-    event_times = []
-    # Find all events currently visible
-    cal_xpath = '//*[@id="calendar"]/div/div[1]/div/div[3]/div/div/a'
-    ignored_exceptions = (NoSuchElementException, StaleElementReferenceException,)
-    try:
-        WebDriverWait(driver, 10, ignored_exceptions=ignored_exceptions) \
-            .until(expected_conditions.presence_of_element_located((By.XPATH, cal_xpath)))
-        events = driver.find_elements_by_xpath(cal_xpath)
-    except TimeoutException:
-        events = []
-        print("No events currently visible")
-
-    for event in events:
-        # Open event pop up window
-        builder.move_to_element(event).perform()
-        event.click()
-        time.sleep(2)
-        # Pull the times from the pop up window
-        labels = [label.text for label in driver.find_elements_by_class_name('span4')]
-        start_datetime = labels[5]
-        end_datetime = labels[6]
-        # Store data
-        event_times.append([start_datetime, end_datetime])
-        # Close the pop up window
-        driver.find_element_by_id('CloseModalDialogButton').click()
-
-    # Move to next week
-    # driver.find_element_by_class_name('fc-button.fc-button-next.fc-state-default.fc-corner-right.hidden-phone').click()
-
-    return event_times
+        event_created = True
+    else:
+        print('Reservation could not be submitted for ' + desired_start_time)
+        event_created = False
+    driver.close()
+    return event_created
 
 
 # Let's reserve the gym
@@ -155,13 +110,15 @@ def main():
     # Variables
     gcal_pending_event_title = 'Pending Gym'        # Name of pending gym events for Google Calendar
     gcal_confirmed_event_title = 'Gym'              # Name of confirmed gym events for Google Calendar
-    separator = '=-=' * 50                          # Separator for print logging
 
     # Create gym reservations based on upcoming, pending Google calendar gym reservations in the next 5 calendar days
     time_max = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=5), datetime.time(23, 59, 59))
-    print(separator)
-    print('Retrieving Pending Gym Times from Google Calendar')
     pending_gcal_timestamps = check_gcal_events(gcal_pending_event_title, time_max)
+    print('Google Calendar Pending Gym Times')
+    for pending_event in pending_gcal_timestamps.values():
+        print(pending_event)
+
+    # Loop through pending events
     for pending_event_id in pending_gcal_timestamps.keys():
         # Parse Google Calendar timestamp and split data into necessary pieces
         pending_gcal_datetimes = [datetime.datetime.strptime(dt.replace('-04:00', ''), "%Y-%m-%dT%H:%M:%S")
@@ -170,47 +127,13 @@ def main():
         st_time = pending_gcal_datetimes[0].time()
         dur = int((pending_gcal_datetimes[1] - pending_gcal_datetimes[0]).total_seconds()/60)
 
-        # Attempt to create reservation and update Google Calendar if successful
-        schedule_gym_time(st_day, st_time, dur)
-        change_gcal_event_title(pending_event_id, gcal_confirmed_event_title)
-
-    # # Get all scheduled gym times
-    # print(separator)
-    # print('Retrieving Gym Times from Lyon Place')
-    # scheduled_gym_times = check_scheduled_gym_times()
-    # print('Lyon Place Gym Times')
-    # for scheduled_gym_time in scheduled_gym_times:
-    #     print(scheduled_gym_time)
-    #
-    # # Pull upcoming, confirmed Google calendar gym reservations
-    # print(separator)
-    # print('Retrieving Gym Times from Google Calendar')
-    # confirmed_gcal_times = check_gcal_events(gcal_confirmed_event_title)
-    # print('Google Calendar Gym Times')
-    # for gcal_time in confirmed_gcal_times:
-    #     print(gcal_time)
-    #
-    # # Create Google calendar events if necessary
-    # print(separator)
-    # created_gcal = False
-    # for event in scheduled_gym_times:
-    #     # Format as gcal time stamp
-    #     dt_stamp = [datetime.datetime.strptime(event[0], "%m/%d/%Y %I:%M %p"),
-    #                 datetime.datetime.strptime(event[1], "%m/%d/%Y %I:%M %p")]
-    #     gcal_timestamp = [dt_stamp[0].strftime("%Y-%m-%dT%H:%M:%S") + '-04:00',
-    #                       dt_stamp[1].strftime("%Y-%m-%dT%H:%M:%S") + '-04:00']
-    #
-    #     # Add to google calendar if it isn't already present
-    #     if dt_stamp[0] >= datetime.datetime.now() and gcal_timestamp not in confirmed_gcal_times:
-    #         created_gcal = True
-    #         create_gcal_event(gcal_confirmed_event_title, gcal_timestamp)
-    # if not created_gcal:
-    #     print('No Google Calendar events were created')
-
-    # All done
-    print(separator)
-    print('The program finished successfully.')
-    print(separator)
+        # Attempt to create reservation
+        if schedule_gym_time(st_day, st_time, dur):
+            # If successful, update Google Calendar event title
+            change_gcal_event_title(pending_event_id, gcal_confirmed_event_title)
+        else:
+            # Send text notification
+            print('Send a text via Twilio')
 
 
 # Let's get it going
