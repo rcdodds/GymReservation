@@ -1,27 +1,21 @@
 from __future__ import print_function
-import time
+
 import datetime
-import pytz
+import time
+
 import pandas as pd
-import numpy as np
-import pickle
-import os.path
+
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from selenium.common.exceptions import NoSuchElementException
-from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.support.ui import WebDriverWait
+
 from webdriver_manager.chrome import ChromeDriverManager
 
-
-# Global variables
-SCOPES = ['https://www.googleapis.com/auth/calendar']
+from GoogleCalendar import check_gcal_events, create_gcal_event
 
 
 # Open a Selenium browser while printing status updates. Return said browser for use in scraping.
@@ -33,9 +27,9 @@ def open_gym_scheduler():
                        'conciergereservations.aspx#tab_MakeAReservation'
 
     chrome_options = Options()
-    # chrome_options.add_argument("--headless")
+    # chrome_options.headless = True
     print('Opening Selenium browser')
-    sele = webdriver.Chrome(ChromeDriverManager().install())
+    sele = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
     print('Selenium browser opened')
     print('Opening ' + nickname)
     sele.get(login_url)
@@ -65,27 +59,28 @@ def read_login(filename):
 
 # Submit Lyon Place gym reservation
 def schedule_gym_time(start_date, start_time, duration):
+    sleeptime = 5
     # Open website and get to reservations page
     driver = open_gym_scheduler()
-    time.sleep(5)
 
     # Choose gym
     driver.find_element_by_id('ResourceId').send_keys('Fitness Center Lyon Place')
-    time.sleep(5)
 
-    # Choose date 5 days in future
+    # Choose date
     start_date_str = start_date.strftime("%m/%d/%y")
-    month_day = str(int(start_date.strftime("%d")))
-    driver.find_element_by_id('StartDate').click()
+    reservation_month_day = int(start_date.strftime("%d"))              # Reservation day of the month (1 - 31)
+    today_month_day = int(datetime.date.today().strftime("%d"))         # Today's day of the month (1 - 31)
+    driver.find_element_by_id('StartDate').click()                      # Open date picker
+    if reservation_month_day < today_month_day:         # If reserving a slot in the next month, move to next month
+        driver.find_element_by_class_name('ui-datepicker-next.ui-corner-all').click()
     cells = driver.find_elements_by_xpath('//td')
     dates = [date.text for date in cells]
-    cells[dates.index(month_day)].click()
-    time.sleep(5)
+    cells[dates.index(str(reservation_month_day))].click()              # Pick reservation date
 
     # Choose duration
     driver.find_element_by_id('Duration').click()
     driver.find_element_by_xpath("//option[@value='" + str(duration) + "']").click()
-    time.sleep(5)
+    time.sleep(sleeptime)
     driver.find_element_by_id('divReservationRequestAdd').click()
 
     # Choose start time
@@ -94,18 +89,20 @@ def schedule_gym_time(start_date, start_time, duration):
     start_time_mins = str(int(start_time.strftime("%M")))
     start_time_ampm = start_time.strftime("%p")
     driver.find_element_by_id('HoursStart').send_keys(start_time_hour)
-    time.sleep(5)
+    time.sleep(sleeptime)
     driver.find_element_by_id('MinutesStart').send_keys(start_time_mins)
-    time.sleep(5)
+    time.sleep(sleeptime)
     driver.find_element_by_id('AmPmStart').send_keys(start_time_ampm)
-    time.sleep(5)
+    time.sleep(sleeptime)
 
     try:
-        # Submit reservation
+        # Click create reservation button
         driver.find_element_by_id('btnCreateReservation').click()
-        time.sleep(10)
+        time.sleep(sleeptime)
+        # Check that reservation is being created at the desired time
+
         driver.find_element_by_id('btnPayNow').click()
-        time.sleep(10)
+        time.sleep(sleeptime)
     except:
         print('Reservation could not be submitted')
         driver.close()
@@ -123,20 +120,22 @@ def check_scheduled_gym_times():
     # For moving around page
     builder = ActionChains(driver)
 
-    # Pull reservations
     event_times = []
-
-    # Find all events on current week visible
+    # Find all events currently visible
     cal_xpath = '//*[@id="calendar"]/div/div[1]/div/div[3]/div/div/a'
     ignored_exceptions = (NoSuchElementException, StaleElementReferenceException,)
-    cal_wait = WebDriverWait(driver, 10, ignored_exceptions=ignored_exceptions) \
-        .until(expected_conditions.presence_of_element_located((By.XPATH, cal_xpath)))
-    cal = driver.find_elements_by_xpath('//*[@id="calendar"]/div/div[1]/div/div[3]/div/div/a')
+    try:
+        WebDriverWait(driver, 10, ignored_exceptions=ignored_exceptions) \
+            .until(expected_conditions.presence_of_element_located((By.XPATH, cal_xpath)))
+        events = driver.find_elements_by_xpath(cal_xpath)
+    except TimeoutException:
+        events = []
+        print("No events currently visible")
 
-    for i in range(len(cal)):
+    for event in events:
         # Open event pop up window
-        builder.move_to_element(cal[i]).perform()
-        cal[i].click()
+        builder.move_to_element(event).perform()
+        event.click()
         time.sleep(2)
         # Pull the times from the pop up window
         labels = [label.text for label in driver.find_elements_by_class_name('span4')]
@@ -147,77 +146,10 @@ def check_scheduled_gym_times():
         # Close the pop up window
         driver.find_element_by_id('CloseModalDialogButton').click()
 
-    event_times_df = pd.DataFrame(event_times, columns=['start', 'end'])
-    event_times_df.to_csv('event_times.csv')
+    # Move to next week
+    # driver.find_element_by_class_name('fc-button.fc-button-next.fc-state-default.fc-corner-right.hidden-phone').click()
+
     return event_times
-
-
-# Get google calendar credentials
-def get_gcal_creds():
-    creds = None
-    # The file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file("client_secret.json", SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
-
-    return creds
-
-
-# Check for gym times on Google Calendar
-def check_gcal_gym_times():
-    # Build service
-    service = build('calendar', 'v3', credentials=get_gcal_creds())
-
-    # Get upcoming Google Calendar events
-    now = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
-    events_result = service.events().list(calendarId='primary', timeMin=now, singleEvents=True,
-                                          orderBy='startTime').execute()
-    events = events_result.get('items', [])
-
-    gym_times = []
-    # Restrict to gym reservations
-    if not events:
-        print('No upcoming events found.')
-    for event in events:
-        if event['summary'] == 'Gym':
-            start = event['start'].get('dateTime', event['start'].get('date'))
-            end = event['end'].get('dateTime', event['end'].get('date'))
-            gym_times.append([start, end])
-    return gym_times
-
-
-# Add gym time to Google Calendar
-def add_gcal_gym_time(times):
-    # Build service
-    gcal_service = build('calendar', 'v3', credentials=get_gcal_creds())
-    # Set up event
-    event = {
-        'summary': 'Gym',
-        'start': {
-            'dateTime': times[0],
-            'timeZone': 'America/New_York'
-        },
-        'end': {
-            'dateTime': times[1],
-            'timeZone': 'America/New_York'
-        }
-    }
-
-    # Insert event
-    gcal_gym_event = gcal_service.events().insert(calendarId='primary', body=event, sendNotifications=True).execute()
-    print('Event created: %s' % (gcal_gym_event.get('htmlLink')))
 
 
 # Let's reserve the gym
@@ -228,17 +160,12 @@ def main():
     # Choose date 5 days in future
     st_day = datetime.date.today() + datetime.timedelta(days=5)
 
-    # Generate list of event info - [[st_day, st_time1, dur1], [st_day, st_time2, dur2]]
+    # Generate list of event info - [[st_day, st_time1, dur1], [st_day, st_time2, dur2], ...]
     gym_reservations = []
     if st_day.weekday() < 5:
         # 7 - 8 am
         st_time = datetime.time(7, 0, 0)
         dur = 60
-        gym_reservations.append([st_day, st_time, dur])
-
-        # 5:30 - 6 pm
-        st_time = datetime.time(17, 30, 0)
-        dur = 30
         gym_reservations.append([st_day, st_time, dur])
     else:
         # 12 - 1 pm
@@ -252,22 +179,24 @@ def main():
 
     # Get all scheduled gym times
     print(separator)
-    print('Retrieving Scheduled Times from Lyon Place')
+    print('Retrieving Gym Times from Lyon Place')
     scheduled_times = check_scheduled_gym_times()
-    print('Lyon Place Scheduled Times')
-    print(scheduled_times)
+    print('Lyon Place Gym Times')
+    for scheduled_time in scheduled_times:
+        print(scheduled_time)
 
     # Pull upcoming Google calendar gym reservations
+    gcal_event_title = 'Gym'
     print(separator)
-    print('Retrieving Google Calendar Events')
-    gcal_times = check_gcal_gym_times()
-    print('Google Calendar Events')
-    print(gcal_times)
+    print('Retrieving Gym Times from Google Calendar')
+    gcal_times = check_gcal_events(gcal_event_title)
+    print('Google Calendar Gym Times')
+    for gcal_time in gcal_times:
+        print(gcal_time)
 
     # Create Google calendar events if necessary
     print(separator)
-    print('Creating Google Calendar Events (if necessary)')
-
+    created_gcal = False
     for event in scheduled_times:
         # Format as gcal time stamp
         dt_stamp = [datetime.datetime.strptime(event[0], "%m/%d/%Y %I:%M %p"),
@@ -277,8 +206,16 @@ def main():
 
         # Add to google calendar if it isn't already present
         if dt_stamp[0] >= datetime.datetime.now() and gcal_timestamp not in gcal_times:
-            add_gcal_gym_time(gcal_timestamp)
-            gcal_times = check_gcal_gym_times()
+            created_gcal = True
+            create_gcal_event(gcal_event_title, gcal_timestamp)
+            # gcal_times = check_gcal_events(gcal_event_title)
+    if not created_gcal:
+        print('No Google Calendar events were created')
+
+    # All done
+    print(separator)
+    print('The program finished successfully.')
+    print(separator)
 
 
 # Let's get it going
