@@ -3,8 +3,6 @@ from __future__ import print_function
 import datetime
 import time
 
-import pandas as pd
-
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException
 from selenium.webdriver.chrome.options import Options
@@ -154,50 +152,47 @@ def check_scheduled_gym_times():
 
 # Let's reserve the gym
 def main():
-    # Separator for print logging
-    separator = '=-=' * 50
+    # Variables
+    gcal_pending_event_title = 'Pending Gym'        # Name of pending gym events for Google Calendar
+    gcal_confirmed_event_title = 'Gym'              # Name of confirmed gym events for Google Calendar
+    separator = '=-=' * 50                          # Separator for print logging
 
-    # Choose date 5 days in future
-    st_day = datetime.date.today() + datetime.timedelta(days=5)
-
-    # Generate list of event info - [[st_day, st_time1, dur1], [st_day, st_time2, dur2], ...]
-    gym_reservations = []
-    if st_day.weekday() < 5:
-        # 7 - 8 am
-        st_time = datetime.time(7, 0, 0)
-        dur = 60
-        gym_reservations.append([st_day, st_time, dur])
-    else:
-        # 12 - 1 pm
-        st_time = datetime.time(12, 0, 0)
-        dur = 60
-        gym_reservations.append([st_day, st_time, dur])
-
-    # Create reservations
-    for reservation in gym_reservations:
-        schedule_gym_time(reservation[0], reservation[1], reservation[2])
+    # Create gym reservations based on upcoming, pending Google calendar gym reservations in the next 5 calendar days
+    time_max = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=5), datetime.time(23, 59, 59))
+    print(separator)
+    print('Retrieving Pending Gym Times from Google Calendar')
+    pending_gcal_timestamps = check_gcal_events(gcal_pending_event_title, time_max)
+    for pending_event in pending_gcal_timestamps:
+        # Parse Google Calendar timestamp and split data into necessary pieces
+        pending_gcal_datetimes = [datetime.datetime.strptime(dt.replace('-04:00', ''), "%Y-%m-%dT%H:%M:%S")
+                                  for dt in pending_event]
+        st_day = pending_gcal_datetimes[0].date()
+        st_time = pending_gcal_datetimes[0].time()
+        dur = int((pending_gcal_datetimes[1] - pending_gcal_datetimes[0]).total_seconds()/60)
+        
+        # Attempt to create reservation and update Google Calendar if successful
+        schedule_gym_time(st_day, st_time, dur)
 
     # Get all scheduled gym times
     print(separator)
     print('Retrieving Gym Times from Lyon Place')
-    scheduled_times = check_scheduled_gym_times()
+    scheduled_gym_times = check_scheduled_gym_times()
     print('Lyon Place Gym Times')
-    for scheduled_time in scheduled_times:
-        print(scheduled_time)
+    for scheduled_gym_time in scheduled_gym_times:
+        print(scheduled_gym_time)
 
-    # Pull upcoming Google calendar gym reservations
-    gcal_event_title = 'Gym'
+    # Pull upcoming, confirmed Google calendar gym reservations
     print(separator)
     print('Retrieving Gym Times from Google Calendar')
-    gcal_times = check_gcal_events(gcal_event_title)
+    confirmed_gcal_times = check_gcal_events(gcal_confirmed_event_title)
     print('Google Calendar Gym Times')
-    for gcal_time in gcal_times:
+    for gcal_time in confirmed_gcal_times:
         print(gcal_time)
 
     # Create Google calendar events if necessary
     print(separator)
     created_gcal = False
-    for event in scheduled_times:
+    for event in scheduled_gym_times:
         # Format as gcal time stamp
         dt_stamp = [datetime.datetime.strptime(event[0], "%m/%d/%Y %I:%M %p"),
                     datetime.datetime.strptime(event[1], "%m/%d/%Y %I:%M %p")]
@@ -205,10 +200,9 @@ def main():
                           dt_stamp[1].strftime("%Y-%m-%dT%H:%M:%S") + '-04:00']
 
         # Add to google calendar if it isn't already present
-        if dt_stamp[0] >= datetime.datetime.now() and gcal_timestamp not in gcal_times:
+        if dt_stamp[0] >= datetime.datetime.now() and gcal_timestamp not in confirmed_gcal_times:
             created_gcal = True
-            create_gcal_event(gcal_event_title, gcal_timestamp)
-            # gcal_times = check_gcal_events(gcal_event_title)
+            create_gcal_event(gcal_confirmed_event_title, gcal_timestamp)
     if not created_gcal:
         print('No Google Calendar events were created')
 

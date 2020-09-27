@@ -36,14 +36,16 @@ def get_gcal_creds():
 
 
 # Pull upcoming events of a given name from Google Calendar
-def check_gcal_events(event_name):
+def check_gcal_events(event_name, time_max=datetime.datetime.combine(datetime.date.today() + datetime.timedelta(365),
+                                                                     datetime.time(12, 0, 0))):
     # Build service
     service = build('calendar', 'v3', credentials=get_gcal_creds())
 
     # Get upcoming Google Calendar events
     now = datetime.datetime.utcnow().isoformat() + 'Z'      # 'Z' indicates UTC time
-    events_result = service.events().list(calendarId='primary', timeMin=now, singleEvents=True,
-                                          orderBy='startTime').execute()
+    time_max = time_max.isoformat() + 'Z'
+    events_result = service.events().list(calendarId='primary', timeMin=now, timeMax=time_max,
+                                          singleEvents=True).execute()
     events = events_result.get('items', [])
 
     event_times = []
