@@ -48,7 +48,7 @@ def check_gcal_events(event_name, time_max=datetime.datetime.combine(datetime.da
                                           singleEvents=True).execute()
     events = events_result.get('items', [])
 
-    event_times = []
+    event_times = {}
     # Restrict to events matching the specific name
     if not events:
         print('No upcoming events named ' + event_name + ' found.')
@@ -56,8 +56,21 @@ def check_gcal_events(event_name, time_max=datetime.datetime.combine(datetime.da
         if event['summary'] == event_name:
             start = event['start'].get('dateTime', event['start'].get('date'))
             end = event['end'].get('dateTime', event['end'].get('date'))
-            event_times.append([start, end])
+            event_times[event['id']] = [start, end]
     return event_times
+
+
+# Update Google Calendar event summary based on ID
+def change_gcal_event_title(event_id, new_name):
+    # Build service
+    service = build('calendar', 'v3', credentials=get_gcal_creds())
+
+    # Get event using ID
+    event = service.events().get(calendarId='primary', eventId=event_id).execute()
+
+    # Update event summary (title)
+    event['summary'] = new_name
+    service.events().update(calendarId='primary', eventId=event_id, body=event).execute()
 
 
 # Add gym time to Google Calendar
