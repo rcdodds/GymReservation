@@ -127,7 +127,7 @@ def schedule_gym_time(start_datetime, duration):
             driver.find_element_by_id('btnPayNow').click()
             time.sleep(5)
             print('Reservation created for ' + actual_start_dt.strftime('%m/%d/%y %I:%M %p'))
-            driver.switch_to.alert.dismiss()
+            # driver.switch_to.alert.dismiss()
             event_created = True
 
     driver.close()
@@ -150,7 +150,7 @@ def main():
     # Loop through pending events
     for pending_event_id in pending_gcal_timestamps.keys():
         # Parse Google Calendar timestamp and split data into necessary pieces
-        pending_gcal_datetimes = [datetime.datetime.strptime(dt.replace('-04:00', ''), "%Y-%m-%dT%H:%M:%S")
+        pending_gcal_datetimes = [datetime.datetime.strptime(dt[:-6], "%Y-%m-%dT%H:%M:%S")
                                   for dt in pending_gcal_timestamps[pending_event_id]]
         start_dt = pending_gcal_datetimes[0]
         dur = int((pending_gcal_datetimes[1] - pending_gcal_datetimes[0]).total_seconds()/60)
