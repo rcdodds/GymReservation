@@ -127,7 +127,7 @@ def schedule_gym_time(start_datetime, duration):
             driver.find_element_by_id('btnPayNow').click()
             time.sleep(5)
             print('Reservation created for ' + actual_start_dt.strftime('%m/%d/%y %I:%M %p'))
-            # driver.switch_to.alert.dismiss()
+            driver.switch_to.alert.dismiss()
             event_created = True
 
     driver.close()
