@@ -159,11 +159,15 @@ def main():
         if schedule_gym_time(start_dt, dur):
             # If successful, update Google Calendar event title
             change_gcal_event_title(pending_event_id, gcal_confirmed_event_title)
+            # Set up success message
+            message = 'SUCCESS - Gym reserved - ' + start_dt.strftime('%m/%d/%y %I:%M %p')
         else:
-            # Print failure message and send text message via Twilio
-            fail_msg = 'Reservation could not be submitted for ' + start_dt.strftime('%m/%d/%y %I:%M %p')
-            print(fail_msg)
-            send_text('Gym Reservation Failure - ' + fail_msg, '+14847233363')
+            # Set up failure message
+            message = 'FAILURE - Gym NOT reserved - ' + start_dt.strftime('%m/%d/%y %I:%M %p')
+
+        # Print and text resultant message
+        print(message)
+        send_text(message, '+14847233363')
 
 
 # Let's get it going
