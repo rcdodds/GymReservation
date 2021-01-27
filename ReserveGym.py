@@ -71,7 +71,6 @@ def wait_page_load(drv):
 
 # Submit Lyon Place gym reservation
 def schedule_gym_time(start_datetime, duration):
-
     # Open website and get to reservations page
     driver = open_gym_scheduler()
 
@@ -79,6 +78,7 @@ def schedule_gym_time(start_datetime, duration):
     driver.find_element_by_id('ResourceId').send_keys('Fitness Center Lyon Place')
 
     # Check Waitlist box. This stops the website from trying to dynamically show available timeslots.
+    wait_page_load(driver)
     driver.find_element_by_id('Waitlist').click()
     wait_page_load(driver)
 
@@ -137,12 +137,13 @@ def schedule_gym_time(start_datetime, duration):
 # Let's reserve the gym
 def main():
     # Variables
+    gcal_calendar_name = 'Gym'                      # Name of Google Calendar holding reservations
     gcal_pending_event_title = 'Pending Gym'        # Name of pending gym events for Google Calendar
     gcal_confirmed_event_title = 'Gym'              # Name of confirmed gym events for Google Calendar
 
     # Create gym reservations based on upcoming, pending Google calendar gym reservations in the next 5 calendar days
     time_max = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=5), datetime.time(23, 59, 59))
-    pending_gcal_timestamps = check_gcal_events(gcal_pending_event_title, time_max)
+    pending_gcal_timestamps = check_gcal_events(gcal_pending_event_title, gcal_calendar_name, time_max)
     print('Google Calendar Pending Gym Times')
     for pending_event in pending_gcal_timestamps.values():
         print(pending_event)

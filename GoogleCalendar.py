@@ -36,20 +36,31 @@ def get_gcal_creds():
 
 
 # Pull upcoming events of a given name from Google Calendar
-def check_gcal_events(event_name, time_max=datetime.datetime.combine(datetime.date.today() + datetime.timedelta(365),
+def check_gcal_events(event_name, cal_name, time_max=datetime.datetime.combine(datetime.date.today() + datetime.timedelta(365),
                                                                      datetime.time(12, 0, 0))):
     # Build service
     service = build('calendar', 'v3', credentials=get_gcal_creds())
 
+    # Choose calendar ID from calendar name
+    page_token = None
+    while True:
+        calendar_list = service.calendarList().list(pageToken=page_token).execute()
+        for calendar_list_entry in calendar_list['items']:
+            if calendar_list_entry['summary'] == cal_name:
+                cal_id = calendar_list_entry['id']
+        page_token = calendar_list.get('nextPageToken')
+        if not page_token:
+            break
+
     # Get upcoming Google Calendar events
     now = datetime.datetime.utcnow().isoformat() + 'Z'      # 'Z' indicates UTC time
     time_max = time_max.isoformat() + 'Z'
-    events_result = service.events().list(calendarId='primary', timeMin=now, timeMax=time_max,
+    events_result = service.events().list(calendarId=cal_id, timeMin=now, timeMax=time_max,
                                           singleEvents=True).execute()
     events = events_result.get('items', [])
 
-    event_times = {}
     # Restrict to events matching the specific name
+    event_times = {}
     if not events:
         print('No upcoming events named ' + event_name + ' found.')
     for event in events:
