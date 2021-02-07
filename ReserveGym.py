@@ -105,11 +105,11 @@ def schedule_gym_time(start_datetime, duration):
     start_time_hour = str(int(start_datetime.strftime("%I")))
     start_time_mins = str(int(start_datetime.strftime("%M")))
     start_time_ampm = start_datetime.strftime("%p")
+    driver.find_element_by_id('AmPmStart').send_keys(start_time_ampm)
+    wait_page_load(driver)
     driver.find_element_by_id('HoursStart').send_keys(start_time_hour)
     wait_page_load(driver)
     driver.find_element_by_id('MinutesStart').send_keys(start_time_mins)
-    wait_page_load(driver)
-    driver.find_element_by_id('AmPmStart').send_keys(start_time_ampm)
     wait_page_load(driver)
 
     # If the wait list warning is not present, submit the reservation
