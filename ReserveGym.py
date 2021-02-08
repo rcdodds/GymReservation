@@ -125,7 +125,7 @@ def schedule_gym_time(start_datetime, duration):
         if deviation.seconds <= 1.5 * 3600:
             # Confirm reservation
             driver.find_element_by_id('btnPayNow').click()
-            time.sleep(5)
+            time.sleep(10)
             print('Reservation created for ' + actual_start_dt.strftime('%m/%d/%y %I:%M %p'))
             driver.switch_to.alert.dismiss()
             event_created = True
@@ -159,7 +159,7 @@ def main():
         # Attempt to create reservation
         if schedule_gym_time(start_dt, dur):
             # If successful, update Google Calendar event title
-            change_gcal_event_title(pending_event_id, gcal_confirmed_event_title)
+            change_gcal_event_title(gcal_calendar_name, pending_event_id, gcal_confirmed_event_title)
             # Set up success message
             message = 'SUCCESS - Gym reserved - ' + start_dt.strftime('%m/%d/%y %I:%M %p')
         else:
