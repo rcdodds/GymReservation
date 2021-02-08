@@ -35,9 +35,8 @@ def get_gcal_creds():
     return creds
 
 
-# Pull upcoming events of a given name from Google Calendar
-def check_gcal_events(event_name, cal_name, time_max=datetime.datetime.combine(datetime.date.today() + datetime.timedelta(365),
-                                                                     datetime.time(12, 0, 0))):
+# Determine calendar ID from calendar name
+def pick_calendar(name):
     # Build service
     service = build('calendar', 'v3', credentials=get_gcal_creds())
 
@@ -46,16 +45,29 @@ def check_gcal_events(event_name, cal_name, time_max=datetime.datetime.combine(d
     while True:
         calendar_list = service.calendarList().list(pageToken=page_token).execute()
         for calendar_list_entry in calendar_list['items']:
-            if calendar_list_entry['summary'] == cal_name:
+            if calendar_list_entry['summary'] == name:
                 cal_id = calendar_list_entry['id']
         page_token = calendar_list.get('nextPageToken')
         if not page_token:
             break
 
+    # Return calendar ID
+    return cal_id
+
+
+# Pull upcoming events of a given name from Google Calendar
+def check_gcal_events(event_name, calendar_name, time_max=datetime.datetime.combine(datetime.date.today() + datetime.timedelta(365),
+                                                                     datetime.time(12, 0, 0))):
+    # Build service
+    service = build('calendar', 'v3', credentials=get_gcal_creds())
+
+    # Choose calendar ID from calendar name
+    calendar_id = pick_calendar(calendar_name)
+
     # Get upcoming Google Calendar events
-    now = datetime.datetime.utcnow().isoformat() + 'Z'      # 'Z' indicates UTC time
-    time_max = time_max.isoformat() + 'Z'
-    events_result = service.events().list(calendarId=cal_id, timeMin=now, timeMax=time_max,
+    now = datetime.datetime.utcnow().isoformat() + '-05:00'      # '-05:00' indicates EST
+    time_max = time_max.isoformat() + '-05:00'
+    events_result = service.events().list(calendarId=calendar_id, timeMin=now, timeMax=time_max,
                                           singleEvents=True).execute()
     events = events_result.get('items', [])
 
@@ -72,20 +84,26 @@ def check_gcal_events(event_name, cal_name, time_max=datetime.datetime.combine(d
 
 
 # Update Google Calendar event summary based on ID
-def change_gcal_event_title(event_id, new_name):
+def change_gcal_event_title(c_name, event_id, new_name):
+    # Choose calendar ID from calendar name
+    c_id = pick_calendar(c_name)
+
     # Build service
     service = build('calendar', 'v3', credentials=get_gcal_creds())
 
     # Get event using ID
-    event = service.events().get(calendarId='primary', eventId=event_id).execute()
+    event = service.events().get(calendarId=c_id, eventId=event_id).execute()
 
     # Update event summary (title)
     event['summary'] = new_name
-    service.events().update(calendarId='primary', eventId=event_id, body=event).execute()
+    service.events().update(calendarId=c_id, eventId=event_id, body=event).execute()
 
 
 # Add gym time to Google Calendar
-def create_gcal_event(event_name, event_times):
+def create_gcal_event(gcal_name, event_name, event_times):
+    # Choose calendar ID from calendar name
+    gcal_id = pick_calendar(gcal_name)
+
     # Build service
     gcal_service = build('calendar', 'v3', credentials=get_gcal_creds())
 
@@ -103,6 +121,6 @@ def create_gcal_event(event_name, event_times):
     }
 
     # Insert event
-    gcal_gym_event = gcal_service.events().insert(calendarId='primary', body=event, sendNotifications=True).execute()
+    gcal_gym_event = gcal_service.events().insert(calendarId=gcal_id, body=event, sendNotifications=True).execute()
     print('Event called ' + event_name + ' from ' + event_times[0] + ' to ' + event_times[1] + ' created: %s'
           % (gcal_gym_event.get('htmlLink')))
