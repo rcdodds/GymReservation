@@ -141,8 +141,8 @@ def main():
     gcal_pending_event_title = 'Pending Gym'        # Name of pending gym events for Google Calendar
     gcal_confirmed_event_title = 'Gym'              # Name of confirmed gym events for Google Calendar
 
-    # Create gym reservations based on upcoming, pending Google calendar gym reservations in the next 5 calendar days
-    time_max = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=5), datetime.time(23, 59, 59))
+    # Create gym reservations based on upcoming, pending Google calendar gym reservations in the next 7 calendar days
+    time_max = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=7), datetime.time(23, 59, 59))
     pending_gcal_timestamps = check_gcal_events(gcal_pending_event_title, gcal_calendar_name, time_max)
     print('Google Calendar Pending Gym Times')
     for pending_event in pending_gcal_timestamps.values():
