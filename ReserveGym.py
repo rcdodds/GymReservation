@@ -149,6 +149,7 @@ def main():
         print(pending_event)
 
     # Loop through pending events
+    message = ''
     for pending_event_id in pending_gcal_timestamps.keys():
         # Parse Google Calendar timestamp and split data into necessary pieces
         pending_gcal_datetimes = [datetime.datetime.strptime(dt[:-6], "%Y-%m-%dT%H:%M:%S")
@@ -161,12 +162,13 @@ def main():
             # If successful, update Google Calendar event title
             gcal.change_gcal_event_title(gcal_calendar_name, pending_event_id, gcal_confirmed_event_title)
             # Set up success message
-            message = 'SUCCESS - Gym reserved - ' + start_dt.strftime('%m/%d/%y %I:%M %p')
+            message = message + 'SUCCESS - Gym reserved - ' + start_dt.strftime('%m/%d/%y %I:%M %p') + '\n'
         else:
             # Set up failure message
-            message = 'FAILURE - Gym NOT reserved - ' + start_dt.strftime('%m/%d/%y %I:%M %p')
+            message = message + 'FAILURE - Gym NOT reserved - ' + start_dt.strftime('%m/%d/%y %I:%M %p') + '\n'
 
-        # Print and text resultant message
+    # Print and text resultant message
+    if message:
         print(message)
         twilio_sms.send_text(message)
 
