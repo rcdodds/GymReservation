@@ -168,7 +168,7 @@ def main():
 
         # Print and text resultant message
         print(message)
-        twilio_sms.send_text(message, '+14847233363')
+        twilio_sms.send_text(message)
 
 
 # Let's get it going
