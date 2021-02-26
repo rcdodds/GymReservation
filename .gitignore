@@ -1,0 +1,7 @@
+venv/*
+.idea/*
+client_secret.json
+token.pickle
+lyon_login.json
+twilio_credentials.json
+debug.log
