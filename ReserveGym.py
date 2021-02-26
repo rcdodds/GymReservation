@@ -13,9 +13,12 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 from webdriver_manager.chrome import ChromeDriverManager
 
-from GoogleCalendar import check_gcal_events, change_gcal_event_title   # Custom import
-from TwilioTexts import send_text   # Custom import
-
+# from GoogleCalendar import check_gcal_events, change_gcal_event_title   # Custom import
+# from TwilioTexts import send_text   # Custom import
+# from gcal import check_gcal_events, change_gcal_event_title   # Custom module from PYTHONPATH system environment variable
+# from twilio_sms import send_text   # Custom module from PYTHONPATH system environment variable
+import gcal
+import twilio_sms
 
 # Open a Selenium browser while printing status updates. Return said browser for use in scraping.
 def open_gym_scheduler():
@@ -143,7 +146,7 @@ def main():
 
     # Create gym reservations based on upcoming, pending Google calendar gym reservations in the next 7 calendar days
     time_max = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=7), datetime.time(23, 59, 59))
-    pending_gcal_timestamps = check_gcal_events(gcal_pending_event_title, gcal_calendar_name, time_max)
+    pending_gcal_timestamps = gcal.check_gcal_events(gcal_pending_event_title, gcal_calendar_name, time_max)
     print('Google Calendar Pending Gym Times')
     for pending_event in pending_gcal_timestamps.values():
         print(pending_event)
@@ -159,7 +162,7 @@ def main():
         # Attempt to create reservation
         if schedule_gym_time(start_dt, dur):
             # If successful, update Google Calendar event title
-            change_gcal_event_title(gcal_calendar_name, pending_event_id, gcal_confirmed_event_title)
+            gcal.change_gcal_event_title(gcal_calendar_name, pending_event_id, gcal_confirmed_event_title)
             # Set up success message
             message = 'SUCCESS - Gym reserved - ' + start_dt.strftime('%m/%d/%y %I:%M %p')
         else:
@@ -168,7 +171,7 @@ def main():
 
         # Print and text resultant message
         print(message)
-        send_text(message, '+14847233363')
+        twilio_sms.send_text(message, '+14847233363')
 
 
 # Let's get it going
