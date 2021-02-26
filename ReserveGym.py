@@ -13,12 +13,9 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 from webdriver_manager.chrome import ChromeDriverManager
 
-# from GoogleCalendar import check_gcal_events, change_gcal_event_title   # Custom import
-# from TwilioTexts import send_text   # Custom import
-# from gcal import check_gcal_events, change_gcal_event_title   # Custom module from PYTHONPATH system environment variable
-# from twilio_sms import send_text   # Custom module from PYTHONPATH system environment variable
 import gcal
 import twilio_sms
+
 
 # Open a Selenium browser while printing status updates. Return said browser for use in scraping.
 def open_gym_scheduler():
